@@ -89,6 +89,8 @@ static int32 get_new_label_id(Oid graph_oid, Oid nsp_id);
 static void change_label_id_default(char *graph_name, char *label_name,
                                     char *schema_name, char *seq_name,
                                     Oid relid);
+static void change_parent_inheritance(char* graph_name, char* label_name, 
+                                      List* parents);
 
 // drop
 static void remove_relation(List *qname);
@@ -354,12 +356,6 @@ Datum create_elabel(PG_FUNCTION_ARGS)
 }
 
 
-static void change_parent_ineritance(graph_name, label_name, parents)
-{
-
-}
-
-
 /*
  * For the new label, create an entry in ag_catalog.ag_label, create a
  * new table and sequence. Returns the oid from the new tuple in
@@ -466,7 +462,7 @@ static void create_table_for_label(char *graph_name, char *label_name,
         ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
                         errmsg("undefined label type \'%c\'", label_type)));
 
-    //create_stmt->inhRelations = parents;
+    create_stmt->inhRelations = parents;
     create_stmt->partbound = NULL;
     create_stmt->ofTypename = NULL;
     create_stmt->constraints = NIL;
@@ -748,6 +744,14 @@ static void change_label_id_default(char *graph_name, char *label_name,
 
     CommandCounterIncrement();
 }
+
+
+static void change_parent_inheritance(char* graph_name, char* label_name, 
+                                      List* parents)
+{
+    // loop through List
+}
+
 
 // CREATE SEQUENCE `seq_range_var` OWNED BY `schema_name`.`rel_name`."id"
 static void alter_sequence_owned_by_for_label(RangeVar *seq_range_var,
