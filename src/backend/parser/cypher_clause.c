@@ -4778,7 +4778,7 @@ transform_create_cypher_edge(cypher_parsestate *cpstate, List **target_list,
         parent = list_make1(rv);
 
         create_label(cpstate->graph_name, edge->label, LABEL_TYPE_EDGE,
-                     parent, false);
+                     parent);
     }
 
     // lock the relation of the label
