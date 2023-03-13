@@ -408,8 +408,12 @@ Oid create_label(char *graph_name, char *label_name, char label_type,
 
     // If a label has parents, switch the parents id default, with its own.
     if (list_length(parents) != 0)
+    {
         change_label_id_default(graph_name, label_name, schema_name, seq_name,
                                 relation_id);
+        /* tehres something about a notice while inheriting */
+        change_parent_ineritance(graph_name, label_name, parents);
+    }
 
     // associate the sequence with the "id" column
     alter_sequence_owned_by_for_label(seq_range_var, rel_name);
