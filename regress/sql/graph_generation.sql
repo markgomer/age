@@ -112,3 +112,7 @@ SELECT drop_graph('gp1', true);
 SELECT drop_graph('gp2', true);
 SELECT drop_graph('gp3', true);
 
+
+-- TESTS FOR CREATE PATH
+
+--SELECT * FROM age_create_path('gp1',)

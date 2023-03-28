@@ -69,7 +69,9 @@ typedef struct graph_components
 
 
 static void validate_barbell_function_args(PG_FUNCTION_ARGS);
-static void initialize_graph(PG_FUNCTION_ARGS, graph_components* graph);
+static void validate_create_path_args(PG_FUNCTION_ARGS);
+static void init_barbell_graph(PG_FUNCTION_ARGS, graph_components* graph);
+static void fetch_path_args(PG_FUNCTION_ARGS, graph_components* graph);
 static void fetch_label_ids(graph_components* graph);
 static void fetch_seq_ids(graph_components* graph);
 static graphid create_vertex(graph_components* graph);
@@ -78,6 +80,130 @@ static graphid connect_vertexes_by_graphid(graph_components* graph,
                                            graphid end);
 static void insert_bridge(graph_components* graph, graphid start, 
                           graphid end, int32 bridge_size);
+
+
+PG_FUNCTION_INFO_V1(age_create_path);
+
+/*
+ * Syntax
+ * 
+ * ag_catalog.age_create_path(graph_name Name, n int, 
+ *                            left_node graphid, right_node graphid,
+ *                            vertex_label_name Name DEFAULT = NULL,
+ *                            vertex_properties agtype DEFAULT = NULL,
+ *                            edge_label_name Name DEFAULT = NULL,
+ *                            edge_properties agtype DEFAULT = NULL,
+ *                            bidirectional bool DEFAULT = true)
+ * 
+ * Input:
+ * 
+ * graph_name - Name of the graph to be created
+ * n - number of vertices in the path.
+ * vertex_label_name - Name of the label to assign each vertex to.
+ * vertex_properties - Property values to assign each vertex. Default is NULL
+ * edge_label_name - Name of the label to assign each edge to.
+ * edge_properties - Property values to assign each edge. Default is NULL
+ * bidirectional - Bidirectional True or False. Default True. 
+ * 
+ * TODO: Make an enum for left, right, or both
+ */
+
+Datum age_create_path(PG_FUNCTION_ARGS)
+{
+    struct graph_components graph;
+    Datum left_node;
+    Datum right_node;
+
+    validate_create_path_args(fcinfo);
+    fetch_path_args(fcinfo, &graph);
+
+    left_node = GRAPHID_GET_DATUM(PG_GETARG_INT64(2));
+    right_node = GRAPHID_GET_DATUM(PG_GETARG_INT64(3));
+    
+    insert_bridge(&graph, left_node, right_node, graph.graph_size);
+    PG_RETURN_DATUM(left_node);
+}
+
+
+static void validate_create_path_args(PG_FUNCTION_ARGS) 
+{
+    if (PG_ARGISNULL(0))
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                        errmsg("Graph name cannot be NULL")));
+    }
+    if (PG_ARGISNULL(1) || PG_GETARG_INT32(1) < 0)
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                errmsg("The number of vertices in the path can't be negative")));
+    }
+    if (PG_ARGISNULL(2))
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                errmsg("You must enter an agtype for the left node")));
+    }
+    if (PG_ARGISNULL(3))
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                errmsg("You must enter an agtype for the right node")));
+    }
+}
+
+
+static void fetch_path_args(PG_FUNCTION_ARGS, graph_components* graph)
+{
+    graph->graph_name = NameStr(*(PG_GETARG_NAME(0)));
+    
+    if (!graph_exists(graph->graph_name))
+    {
+        DirectFunctionCall1(create_graph, CStringGetDatum(graph->graph_name));
+    }
+
+    if(PG_ARGISNULL(1))
+    {
+        graph->graph_size = 0;
+    }
+    else 
+    {
+        graph->graph_size = PG_GETARG_INT32(1);
+    }
+
+    if (PG_ARGISNULL(4))
+    {
+        graph->vertex_label = AG_DEFAULT_LABEL_VERTEX;
+    }
+    else
+    {
+        graph->vertex_label = NameStr(*(PG_GETARG_NAME(3)));
+    }
+
+    if (PG_ARGISNULL(5))
+    {
+        graph->vertex_properties = create_empty_agtype();
+    }
+    else
+    {
+        graph->vertex_properties = (agtype*)(PG_GETARG_DATUM(4));
+    }
+    
+    if (PG_ARGISNULL(6))
+    {
+        graph->edge_label = AG_DEFAULT_LABEL_EDGE;
+    }
+    else
+    {
+        graph->edge_label = NameStr(*(PG_GETARG_NAME(5)));
+    }
+
+    if (PG_ARGISNULL(7))
+    {
+        graph->edge_properties = create_empty_agtype();
+    }
+    else
+    {
+        graph->edge_properties = (agtype*)(PG_GETARG_DATUM(6));
+    }
+}
 
 
 PG_FUNCTION_INFO_V1(create_complete_graph);
@@ -272,7 +398,7 @@ Datum age_create_barbell_graph(PG_FUNCTION_ARGS)
     int32 bridge_size;
 
     validate_barbell_function_args(fcinfo);
-    initialize_graph(fcinfo, &graph);
+    init_barbell_graph(fcinfo, &graph);
 
     // create two separate complete graphs
     root1 = DirectFunctionCall4(create_complete_graph, 
@@ -330,10 +456,23 @@ static void validate_barbell_function_args(PG_FUNCTION_ARGS)
 }
 
 
-static void initialize_graph(PG_FUNCTION_ARGS, graph_components* graph)
+static void init_barbell_graph(PG_FUNCTION_ARGS, graph_components* graph)
 {
     graph->graph_name = NameStr(*(PG_GETARG_NAME(0)));
-    graph->graph_size = PG_GETARG_INT32(1);
+    
+    if (!graph_exists(graph->graph_name))
+    {
+        DirectFunctionCall1(create_graph, CStringGetDatum(graph->graph_name));
+    }
+
+    if(PG_ARGISNULL(1))
+    {
+        graph->graph_size = 0;
+    }
+    else 
+    {
+        graph->graph_size = PG_GETARG_INT32(1);
+    }
 
     if (PG_ARGISNULL(3))
     {
