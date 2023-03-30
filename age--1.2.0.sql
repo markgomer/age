@@ -4203,12 +4203,16 @@ CALLED ON NULL INPUT
 PARALLEL SAFE
 AS 'MODULE_PATHNAME';
 
-CREATE FUNCTION ag_catalog.age_create_path(graph_name Name, path_length int, 
-                                        left_node graphid, right_node graphid,
-                                        node_label_name Name = NULL,
-                                        node_properties agtype = NULL,
-                                        edge_label_name Name = NULL,
-                                        edge_properties agtype = NULL)
+CREATE FUNCTION ag_catalog.age_create_path (
+  graph_name Name, 
+  path_length int, 
+  left_node graphid, 
+  right_node graphid,
+  node_label_name Name = NULL,
+  node_properties agtype = NULL,
+  edge_label_name Name = NULL,
+  edge_properties agtype = NULL 
+) 
 RETURNS graphid
 LANGUAGE c
 CALLED ON NULL INPUT
