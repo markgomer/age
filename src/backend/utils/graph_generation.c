@@ -49,8 +49,48 @@
 #include "utils/load/ag_load_labels.h"
 
 
+
+typedef struct graph_components 
+{
+    Oid graph_oid;
+    char* graph_name;
+    int graph_size;
+
+    char* vertex_label;
+    int vertex_label_id;
+    agtype* vertex_properties;
+    Oid vtx_seq_id;
+    
+    char* edge_label;
+    int edge_label_id;
+    agtype* edge_properties;
+    Oid edge_seq_id;
+
+} graph_components;
+
+
 int64 get_nextval_internal(graph_cache_data* graph_cache, 
                            label_cache_data* label_cache);
+static void assert_cycle_graph_args(PG_FUNCTION_ARGS);
+static void process_cycle_graph_arguments(PG_FUNCTION_ARGS, 
+                                          graph_components* graph);
+static void process_vertex_label(PG_FUNCTION_ARGS, graph_components* graph);
+static void check_same_vertex_and_edge_label(graph_components* graph);
+static void create_graph_if_not_exists(const char* graphNameStr);
+static void process_labels(const char* graph_name, const char* vertex_label,
+                          const char* edge_label);
+static void create_vertex_label_if_not_exists(const char* graph_name, 
+                                              const char* vertex_Name);
+static void create_edge_label_if_not_exists(const char* graph_name, 
+                                            const char* edge_name);
+static void fetch_label_ids(graph_components* graph);
+static void fetch_seq_ids(graph_components* graph);
+static graphid create_vertex(graph_components* graph);
+static graphid connect_vertexes_by_graphid(graph_components* graph, 
+                                           graphid start, 
+                                           graphid end);
+
+
 /*
  * Auxiliary function to get the next internal value in the graph,
  * so a new object (node or edge) graph id can be composed.
@@ -372,4 +412,219 @@ Datum age_create_barbell_graph(PG_FUNCTION_ARGS)
                        end_node_graph_id, properties);
     
     PG_RETURN_VOID();
+}
+
+
+/**
+ * A cycle graph or circular graph is a graph that consists of some number of vertices (at least 3) connected in a closed chain.
+ * 
+ * Syntax: ag_catalog.age_create_cycle_graph(graph_name name, n int, bidirectional bool DEFAULT = true)
+ * 
+ * Input:
+ * 
+ *     graph_name - Name of the Graph
+ *     n - number of vertices in the cycle
+ *     vertex_label_name - Name of the label to assign each vertex to.
+ *     vertex_properties - Property values to assign each vertex. Default is NULL
+ *     edge_label_name - Name of the label to assign each edge to.
+ *     edge_properties - Property values to assign each edge. Default is NULL
+ *     bidirectional
+ * 
+ * https://en.wikipedia.org/wiki/Cycle_graph
+ */
+PG_FUNCTION_INFO_V1(create_cycle_graph);
+
+Datum create_cycle_graph(PG_FUNCTION_ARGS)
+{
+    graph_components graph;
+    graphid first_vertex;
+    graphid curr_vertex;
+    graphid next_vertex;
+
+    assert_cycle_graph_args(fcinfo);
+    process_cycle_graph_arguments(fcinfo, &graph);
+    
+    create_graph_if_not_exists(graph.graph_name);
+    process_labels(graph.graph_name, graph.vertex_label, graph.edge_label);
+    
+    fetch_label_ids(&graph);
+    fetch_seq_ids(&graph);
+
+    first_vertex = create_vertex(&graph);
+    curr_vertex = first_vertex;
+    for(int64 i = 1; i<graph.graph_size; i++)
+    {
+        next_vertex = create_vertex(&graph);
+        connect_vertexes_by_graphid(&graph, curr_vertex, next_vertex);
+        curr_vertex = next_vertex;
+    }
+    connect_vertexes_by_graphid(&graph, curr_vertex, first_vertex);
+    PG_RETURN_DATUM(GRAPHID_GET_DATUM(first_vertex));
+}
+
+
+static void assert_cycle_graph_args(PG_FUNCTION_ARGS)
+{
+    if (PG_ARGISNULL(0))
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                        errmsg("graph name cannot be NULL")));
+    }
+    if (PG_ARGISNULL(1) || PG_GETARG_INT32(1) < 3)
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                errmsg("cycle graph size cannot be NULL or lower than 3")));
+    }
+    if (PG_ARGISNULL(2))
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                errmsg("edge label cannot be NULL")));
+    }
+}
+
+
+static void process_cycle_graph_arguments(PG_FUNCTION_ARGS, 
+                                          graph_components* graph)
+{
+    graph->graph_name = NameStr(*(PG_GETARG_NAME(0)));
+    graph->graph_size = (int64) PG_GETARG_INT64(1);
+    graph->edge_label = NameStr(*(PG_GETARG_NAME(2)));
+    process_vertex_label(fcinfo, graph);    
+    check_same_vertex_and_edge_label(graph);
+    graph->edge_properties = create_empty_agtype();
+    graph->vertex_properties = create_empty_agtype();
+}
+
+
+static void process_vertex_label(PG_FUNCTION_ARGS, graph_components* graph) 
+{
+    if (!PG_ARGISNULL(4)) 
+    {
+        graph->vertex_label = NameStr(*(PG_GETARG_NAME(4)));
+    } else 
+    {
+        graph->vertex_label = AG_DEFAULT_LABEL_VERTEX;
+    }
+}
+
+
+static void check_same_vertex_and_edge_label(graph_components* graph) 
+{
+    if (strcmp(graph->vertex_label, graph->edge_label) == 0) 
+    {
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                errmsg("Vertex and edge label cannot be the same")));
+    }
+}
+
+
+static void create_graph_if_not_exists(const char* graphNameStr) 
+{
+    if (!graph_exists(graphNameStr)) 
+    {
+        DirectFunctionCall1(create_graph, CStringGetDatum(graphNameStr));
+    }
+}
+
+
+static void process_labels(const char* graph_name, const char* vertex_label,
+                          const char* edge_label) 
+{
+    create_vertex_label_if_not_exists(graph_name, vertex_label);
+    create_edge_label_if_not_exists(graph_name, edge_label);
+}
+
+
+static void create_vertex_label_if_not_exists(const char* graph_name, 
+                                              const char* vertex_Name) 
+{
+    const Oid graphId = get_graph_oid(graph_name);
+    
+    if (!label_exists(vertex_Name, graphId)) 
+    {
+        DirectFunctionCall2(create_vlabel, 
+                            CStringGetDatum(graph_name), 
+                            CStringGetDatum(vertex_Name));
+    }
+}
+
+
+static void create_edge_label_if_not_exists(const char* graph_name, 
+                                            const char* edge_name) 
+{
+    const Oid graphId = get_graph_oid(graph_name);
+    
+    if (!label_exists(edge_name, graphId)) 
+    {
+        DirectFunctionCall2(create_elabel, 
+                            CStringGetDatum(graph_name), 
+                            CStringGetDatum(edge_name));
+    }
+}
+
+
+static void fetch_label_ids(graph_components* graph) 
+{
+    graph->graph_oid = get_graph_oid(graph->graph_name);
+    graph->vertex_label_id = 
+        get_label_id(graph->vertex_label, 
+                     graph->graph_oid);
+    graph->edge_label_id = 
+        get_label_id(graph->edge_label, 
+                     graph->graph_oid);
+}
+
+
+static void fetch_seq_ids(graph_components* graph)
+{
+    graph_cache_data* graph_cache;
+    label_cache_data* vtx_cache;
+    label_cache_data* edge_cache;
+
+    graph_cache = search_graph_name_cache(graph->graph_name);
+    vtx_cache = search_label_name_graph_cache(graph->vertex_label,
+                                              graph->graph_oid);
+    edge_cache = search_label_name_graph_cache(graph->edge_label,
+                                               graph->graph_oid);
+
+    graph->vtx_seq_id = 
+        get_relname_relid(NameStr(vtx_cache->seq_name),
+                          graph_cache->namespace);
+    graph->edge_seq_id = 
+        get_relname_relid(NameStr(edge_cache->seq_name),
+                          graph_cache->namespace);
+}
+
+
+static graphid create_vertex(graph_components* graph)
+{
+    int next_index;
+    graphid new_graph_id; 
+    
+    next_index = nextval_internal(graph->vtx_seq_id, true);
+    new_graph_id = make_graphid(graph->vertex_label_id, 
+                                next_index);
+    insert_vertex_simple(graph->graph_oid,
+                         graph->vertex_label,
+                         new_graph_id,
+                         create_empty_agtype());
+    return new_graph_id;
+} 
+
+
+static graphid connect_vertexes_by_graphid(graph_components* graph, 
+                                           graphid out_vtx,
+                                           graphid in_vtx)
+{
+    int nextval;
+    graphid new_graphid; 
+
+    nextval = nextval_internal(graph->edge_seq_id, true);
+    new_graphid = make_graphid(graph->edge_label_id, nextval);
+    
+    insert_edge_simple(graph->graph_oid,
+                       graph->edge_label,
+                       new_graphid, out_vtx, in_vtx,
+                       create_empty_agtype());
+    return new_graphid;
 }
