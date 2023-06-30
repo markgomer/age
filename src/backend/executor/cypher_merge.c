@@ -120,7 +120,7 @@ static void begin_cypher_merge(CustomScanState *node, EState *estate,
         }
 
         // Open relation and acquire a row exclusive lock.
-        rel = heap_open(cypher_node->relid, RowExclusiveLock);
+        rel = table_open(cypher_node->relid, RowExclusiveLock);
 
         // Initialize resultRelInfo for the vertex
         cypher_node->resultRelInfo = makeNode(ResultRelInfo);
@@ -580,7 +580,7 @@ static void end_cypher_merge(CustomScanState *node)
         ExecCloseIndices(cypher_node->resultRelInfo);
 
         // close the relation itself
-        heap_close(cypher_node->resultRelInfo->ri_RelationDesc,
+        table_close(cypher_node->resultRelInfo->ri_RelationDesc,
                    RowExclusiveLock);
     }
 }

@@ -222,7 +222,7 @@ static int name_hash_compare(const void *key1, const void *key2, Size keysize)
     Name name2 = (Name)key2;
 
     // keysize parameter is superfluous here
-    AssertArg(keysize == NAMEDATALEN);
+    Assert(keysize == NAMEDATALEN);
 
     return strncmp(NameStr(*name1), NameStr(*name2), NAMEDATALEN);
 }
@@ -354,7 +354,7 @@ graph_cache_data *search_graph_name_cache(const char *name)
     NameData name_key;
     graph_name_cache_entry *entry;
 
-    AssertArg(name);
+    Assert(name);
 
     initialize_caches();
 
@@ -383,7 +383,7 @@ static graph_cache_data *search_graph_name_cache_miss(Name name)
      * might flush the graph caches. This is OK because this function is called
      * when the desired entry is not in the cache.
      */
-    ag_graph = heap_open(ag_graph_relation_id(), AccessShareLock);
+    ag_graph = table_open(ag_graph_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_graph, ag_graph_name_index_id(), true,
                                    NULL, 1, scan_keys);
 
@@ -392,7 +392,7 @@ static graph_cache_data *search_graph_name_cache_miss(Name name)
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_graph, AccessShareLock);
+        table_close(ag_graph, AccessShareLock);
 
         return NULL;
     }
@@ -405,7 +405,7 @@ static graph_cache_data *search_graph_name_cache_miss(Name name)
     fill_graph_cache_data(&entry->data, tuple, RelationGetDescr(ag_graph));
 
     systable_endscan(scan_desc);
-    heap_close(ag_graph, AccessShareLock);
+    table_close(ag_graph, AccessShareLock);
 
     return &entry->data;
 }
@@ -442,7 +442,7 @@ static graph_cache_data *search_graph_namespace_cache_miss(Oid namespace)
      * might flush the graph caches. This is OK because this function is called
      * when the desired entry is not in the cache.
      */
-    ag_graph = heap_open(ag_graph_relation_id(), AccessShareLock);
+    ag_graph = table_open(ag_graph_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_graph, ag_graph_namespace_index_id(),
                                    true, NULL, 1, scan_keys);
 
@@ -452,7 +452,7 @@ static graph_cache_data *search_graph_namespace_cache_miss(Oid namespace)
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_graph, AccessShareLock);
+        table_close(ag_graph, AccessShareLock);
 
         return NULL;
     }
@@ -466,7 +466,7 @@ static graph_cache_data *search_graph_namespace_cache_miss(Oid namespace)
     fill_graph_cache_data(&entry->data, tuple, RelationGetDescr(ag_graph));
 
     systable_endscan(scan_desc);
-    heap_close(ag_graph, AccessShareLock);
+    table_close(ag_graph, AccessShareLock);
 
     return &entry->data;
 }
@@ -942,7 +942,7 @@ static label_cache_data *search_label_oid_cache_miss(Oid oid)
      * might invalidate the label caches. This is OK because this function is
      * called when the desired entry is not in the cache.
      */
-    ag_label = heap_open(ag_label_relation_id(), AccessShareLock);
+    ag_label = table_open(ag_label_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_label, ag_label_oid_index_id(), true,
                                    NULL, 1, scan_keys);
 
@@ -951,7 +951,7 @@ static label_cache_data *search_label_oid_cache_miss(Oid oid)
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_label, AccessShareLock);
+        table_close(ag_label, AccessShareLock);
 
         return NULL;
     }
@@ -966,7 +966,7 @@ static label_cache_data *search_label_oid_cache_miss(Oid oid)
     Assert(entry->oid == oid);
 
     systable_endscan(scan_desc);
-    heap_close(ag_label, AccessShareLock);
+    table_close(ag_label, AccessShareLock);
 
     return entry;
 }
@@ -976,8 +976,8 @@ label_cache_data *search_label_name_graph_cache(const char *name, Oid graph)
     NameData name_key;
     label_name_graph_cache_entry *entry;
 
-    AssertArg(name);
-    AssertArg(OidIsValid(graph));
+    Assert(name);
+    Assert(OidIsValid(graph));
 
     initialize_caches();
 
@@ -1010,7 +1010,7 @@ static label_cache_data *search_label_name_graph_cache_miss(Name name,
      * might invalidate the label caches. This is OK because this function is
      * called when the desired entry is not in the cache.
      */
-    ag_label = heap_open(ag_label_relation_id(), AccessShareLock);
+    ag_label = table_open(ag_label_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_label, ag_label_name_graph_index_id(),
                                    true, NULL, 2, scan_keys);
 
@@ -1022,7 +1022,7 @@ static label_cache_data *search_label_name_graph_cache_miss(Name name,
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_label, AccessShareLock);
+        table_close(ag_label, AccessShareLock);
 
         return NULL;
     }
@@ -1036,7 +1036,7 @@ static label_cache_data *search_label_name_graph_cache_miss(Name name,
     fill_label_cache_data(&entry->data, tuple, RelationGetDescr(ag_label));
 
     systable_endscan(scan_desc);
-    heap_close(ag_label, AccessShareLock);
+    table_close(ag_label, AccessShareLock);
 
     return &entry->data;
 }
@@ -1057,8 +1057,8 @@ label_cache_data *search_label_graph_id_cache(Oid graph, int32 id)
 {
     label_graph_id_cache_entry *entry;
 
-    AssertArg(OidIsValid(graph));
-    AssertArg(label_id_is_valid(id));
+    Assert(OidIsValid(graph));
+    Assert(label_id_is_valid(id));
 
     initialize_caches();
 
@@ -1088,7 +1088,7 @@ static label_cache_data *search_label_graph_id_cache_miss(Oid graph, int32 id)
      * might invalidate the label caches. This is OK because this function is
      * called when the desired entry is not in the cache.
      */
-    ag_label = heap_open(ag_label_relation_id(), AccessShareLock);
+    ag_label = table_open(ag_label_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_label, ag_label_graph_id_index_id(),
                                    true, NULL, 2, scan_keys);
 
@@ -1100,7 +1100,7 @@ static label_cache_data *search_label_graph_id_cache_miss(Oid graph, int32 id)
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_label, AccessShareLock);
+        table_close(ag_label, AccessShareLock);
 
         return NULL;
     }
@@ -1113,7 +1113,7 @@ static label_cache_data *search_label_graph_id_cache_miss(Oid graph, int32 id)
     fill_label_cache_data(&entry->data, tuple, RelationGetDescr(ag_label));
 
     systable_endscan(scan_desc);
-    heap_close(ag_label, AccessShareLock);
+    table_close(ag_label, AccessShareLock);
 
     return &entry->data;
 }
@@ -1161,7 +1161,7 @@ static label_cache_data *search_label_relation_cache_miss(Oid relation)
      * might invalidate the label caches. This is OK because this function is
      * called when the desired entry is not in the cache.
      */
-    ag_label = heap_open(ag_label_relation_id(), AccessShareLock);
+    ag_label = table_open(ag_label_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_label, ag_label_relation_index_id(),
                                    true, NULL, 1, scan_keys);
 
@@ -1171,7 +1171,7 @@ static label_cache_data *search_label_relation_cache_miss(Oid relation)
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_label, AccessShareLock);
+        table_close(ag_label, AccessShareLock);
 
         return NULL;
     }
@@ -1185,7 +1185,7 @@ static label_cache_data *search_label_relation_cache_miss(Oid relation)
     fill_label_cache_data(entry, tuple, RelationGetDescr(ag_label));
 
     systable_endscan(scan_desc);
-    heap_close(ag_label, AccessShareLock);
+    table_close(ag_label, AccessShareLock);
 
     return entry;
 }
@@ -1195,8 +1195,8 @@ label_cache_data *search_label_seq_name_graph_cache(const char *name, Oid graph)
     NameData name_key;
     label_seq_name_graph_cache_entry *entry;
 
-    AssertArg(name);
-    AssertArg(OidIsValid(graph));
+    Assert(name);
+    Assert(OidIsValid(graph));
 
     initialize_caches();
 
@@ -1229,7 +1229,7 @@ static label_cache_data *search_label_seq_name_graph_cache_miss(Name name,
      * might invalidate the label caches. This is OK because this function is
      * called when the desired entry is not in the cache.
      */
-    ag_label = heap_open(ag_label_relation_id(), AccessShareLock);
+    ag_label = table_open(ag_label_relation_id(), AccessShareLock);
     scan_desc = systable_beginscan(ag_label, ag_label_seq_name_graph_index_id(),
                                    true, NULL, 2, scan_keys);
 
@@ -1241,7 +1241,7 @@ static label_cache_data *search_label_seq_name_graph_cache_miss(Name name,
     if (!HeapTupleIsValid(tuple))
     {
         systable_endscan(scan_desc);
-        heap_close(ag_label, AccessShareLock);
+        table_close(ag_label, AccessShareLock);
 
         return NULL;
     }
@@ -1255,7 +1255,7 @@ static label_cache_data *search_label_seq_name_graph_cache_miss(Name name,
     fill_label_cache_data(&entry->data, tuple, RelationGetDescr(ag_label));
 
     systable_endscan(scan_desc);
-    heap_close(ag_label, AccessShareLock);
+    table_close(ag_label, AccessShareLock);
 
     return &entry->data;
 }

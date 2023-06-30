@@ -92,7 +92,7 @@ void destroy_entity_result_rel_info(ResultRelInfo *result_rel_info)
     ExecCloseIndices(result_rel_info);
 
     // close the rel
-    heap_close(result_rel_info->ri_RelationDesc, RowExclusiveLock);
+    table_close(result_rel_info->ri_RelationDesc, RowExclusiveLock);
 }
 
 TupleTableSlot *populate_vertex_tts(
@@ -186,7 +186,7 @@ bool entity_exists(EState *estate, Oid graph_oid, graphid id)
     ScanKeyInit(&scan_keys[0], 1, BTEqualStrategyNumber,
                 F_GRAPHIDEQ, GRAPHID_GET_DATUM(id));
 
-    rel = heap_open(label->relation, RowExclusiveLock);
+    rel = table_open(label->relation, RowExclusiveLock);
     scan_desc = heap_beginscan(rel, estate->es_snapshot, 1, scan_keys);
 
     tuple = heap_getnext(scan_desc, ForwardScanDirection);
@@ -201,7 +201,7 @@ bool entity_exists(EState *estate, Oid graph_oid, graphid id)
     }
 
     heap_endscan(scan_desc);
-    heap_close(rel, RowExclusiveLock);
+    table_close(rel, RowExclusiveLock);
 
     return result;
 }

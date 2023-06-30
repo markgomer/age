@@ -34,7 +34,7 @@
 #define ag_graph_namespace_index_id() \
     ag_relation_id("ag_graph_namespace_index", "index")
 
-Oid insert_graph(const Name graph_name, const Oid nsp_id);
+void insert_graph(const Name graph_name, const Oid nsp_id);
 void delete_graph(const Name graph_name);
 void update_graph_name(const Name graph_name, const Name new_name);
 

@@ -779,7 +779,7 @@ static void remove_relation(List *qname)
     Oid rel_oid;
     ObjectAddress address;
 
-    AssertArg(list_length(qname) == 2);
+    Assert(list_length(qname) == 2);
 
     // concurrent is false so lockmode is AccessExclusiveLock
 
