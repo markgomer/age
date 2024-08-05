@@ -1380,7 +1380,8 @@ static void agtype_categorize_type(Oid typoid, agt_type_category *tcategory,
         {
             *tcategory = AGT_TYPE_ARRAY;
         }
-        else if (type_is_rowtype(typoid)) /* includes RECORDOID */
+        /* includes RECORDOID */
+        else if (type_is_rowtype(typoid))
         {
             *tcategory = AGT_TYPE_COMPOSITE;
         }
@@ -1861,7 +1862,8 @@ static void composite_to_agtype(Datum composite, agtype_in_state *result)
  */
 void remove_null_from_agtype_object(agtype_value *object)
 {
-    agtype_pair *avail; // next available position
+     /* next available position */
+    agtype_pair *avail;
     agtype_pair *ptr;
 
     if (object->type != AGTV_OBJECT)
@@ -2401,6 +2403,14 @@ static agtype_value *agtype_build_map_as_agtype_value(FunctionCallInfo fcinfo)
 
             agtv = tostring_helper(args[i], types[i],
                                    "agtype_build_map_as_agtype_value");
+            if (agtv == NULL)
+            {
+                ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                     errmsg("argument %d: key must not be null", i + 1)));
+
+            }
+
             result.res = push_agtype_value(&result.parse_state, WAGT_KEY, agtv);
 
             /* free the agtype_value from tostring_helper */
@@ -4369,7 +4379,7 @@ Datum agtype_string_match_contains(PG_FUNCTION_ARGS)
 #define LEFT_ROTATE(n, i) ((n << i) | (n >> (64 - i)))
 #define RIGHT_ROTATE(n, i)  ((n >> i) | (n << (64 - i)))
 
-//Hashing Function for Hash Indexes
+/* Hashing Function for Hash Indexes */
 PG_FUNCTION_INFO_V1(agtype_hash_cmp);
 
 Datum agtype_hash_cmp(PG_FUNCTION_ARGS)
@@ -4411,7 +4421,7 @@ Datum agtype_hash_cmp(PG_FUNCTION_ARGS)
     PG_RETURN_INT32(hash);
 }
 
-// Comparison function for btree Indexes
+/* Comparison function for btree Indexes */
 PG_FUNCTION_INFO_V1(agtype_btree_cmp);
 
 Datum agtype_btree_cmp(PG_FUNCTION_ARGS)
@@ -5834,7 +5844,7 @@ Datum age_tobooleanlist(PG_FUNCTION_ARGS)
     /* iterate through the list */
     for (i = 0; i < count; i++)
     {
-        // check element's type, it's value, and convert it to boolean if possible.
+        /* check element's type, it's value, and convert it to boolean if possible. */
         elem = get_ith_agtype_value_from_container(&agt_arg->root, i);
         bool_elem.type = AGTV_BOOL;
 
@@ -6083,7 +6093,7 @@ Datum age_tofloatlist(PG_FUNCTION_ARGS)
     /* iterate through the list */
     for (i = 0; i < count; i++)
     {
-        // TODO: check element's type, it's value, and convert it to float if possible.
+        /* TODO: check element's type, it's value, and convert it to float if possible. */
         elem = get_ith_agtype_value_from_container(&agt_arg->root, i);
         float_elem.type = AGTV_FLOAT;
 
@@ -6411,7 +6421,7 @@ Datum age_tointegerlist(PG_FUNCTION_ARGS)
     /* iterate through the list */
     for (i = 0; i < count; i++)
     {
-        // TODO: check element's type, it's value, and convert it to integer if possible.
+        /* TODO: check element's type, it's value, and convert it to integer if possible. */
         elem = get_ith_agtype_value_from_container(&agt_arg->root, i);
         integer_elem.type = AGTV_INTEGER;
 
@@ -6759,7 +6769,7 @@ Datum age_label(PG_FUNCTION_ARGS)
     /* get the argument */
     agt_arg = AG_GET_ARG_AGTYPE_P(0);
 
-    // edges and vertices are considered scalars
+    /* edges and vertices are considered scalars */
     if (!AGT_ROOT_IS_SCALAR(agt_arg))
     {
         if (AGTE_IS_NULL(agt_arg->root.children[0]))
@@ -6772,7 +6782,7 @@ Datum age_label(PG_FUNCTION_ARGS)
 
     agtv_value = get_ith_agtype_value_from_container(&agt_arg->root, 0);
 
-    // fail if agtype value isn't an edge or vertex
+    /* fail if agtype value isn't an edge or vertex */
     if (agtv_value->type != AGTV_VERTEX && agtv_value->type != AGTV_EDGE)
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -6780,7 +6790,7 @@ Datum age_label(PG_FUNCTION_ARGS)
 
     }
 
-    // extract the label agtype value from the vertex or edge
+    /* extract the label agtype value from the vertex or edge */
     label = GET_AGTYPE_VALUE_OBJECT_VALUE(agtv_value, "label");
 
     PG_RETURN_POINTER(agtype_value_to_agtype(label));
@@ -6843,7 +6853,7 @@ Datum age_tostring(PG_FUNCTION_ARGS)
 
 /*
  * Helper function to take any valid type and convert it to an agtype string.
- * Returns NULL for NULL output.
+ * Returns NULL for NULL input.
  */
 static agtype_value *tostring_helper(Datum arg, Oid type, char *msghdr)
 {
@@ -7035,7 +7045,7 @@ Datum age_tostringlist(PG_FUNCTION_ARGS)
     /* iterate through the list */
     for (i = 0; i < count; i++)
     {
-        // TODO: check element's type, it's value, and convert it to string if possible.
+        /* TODO: check element's type, it's value, and convert it to string if possible. */
         elem = get_ith_agtype_value_from_container(&agt_arg->root, i);
         string_elem.type = AGTV_STRING;
 
@@ -9783,7 +9793,7 @@ agtype_value *agtype_composite_to_agtype_value_binary(agtype *a)
 
     result = palloc(sizeof(agtype_value));
 
-    // convert the agtype to a binary agtype_value
+    /* convert the agtype to a binary agtype_value */
     result->type = AGTV_BINARY;
     result->val.binary.len = AGTYPE_CONTAINER_SIZE(&a->root);
     result->val.binary.data = &a->root;
@@ -9808,13 +9818,13 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
     agtype_value *parsed_agtype_value = NULL;
     bool found;
 
-    // if no properties, return NULL
+    /* if no properties, return NULL */
     if (properties == NULL)
     {
         return NULL;
     }
 
-    // if properties is not an object, throw an error
+    /* if properties is not an object, throw an error */
     if (properties->type != AGTV_OBJECT)
     {
         ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -9860,11 +9870,11 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
          */
         if (strcmp(str, var_name))
         {
-            // push the key
+            /* push the key */
             parsed_agtype_value = push_agtype_value(
                 &parse_state, tok, tok < WAGT_BEGIN_ARRAY ? r : NULL);
 
-            // get the value and push the value
+            /* get the value and push the value */
             tok = agtype_iterator_next(&it, r, true);
             parsed_agtype_value = push_agtype_value(&parse_state, tok, r);
         }
@@ -9872,19 +9882,19 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
         {
             agtype_value *new_agtype_value_v;
 
-            // if the remove flag is set, don't push the key or any value
+            /* if the remove flag is set, don't push the key or any value */
             if(remove_property)
             {
-                // skip the value
+                /* skip the value */
                 tok = agtype_iterator_next(&it, r, true);
                 continue;
             }
 
-            // push the key
+            /* push the key */
             parsed_agtype_value = push_agtype_value(
                 &parse_state, tok, tok < WAGT_BEGIN_ARRAY ? r : NULL);
 
-            // skip the existing value for the key
+            /* skip the existing value for the key */
             tok = agtype_iterator_next(&it, r, true);
 
             /*
@@ -9896,7 +9906,7 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
              */
             if (AGTYPE_CONTAINER_IS_SCALAR(&new_v->root))
             {
-                //get the scalar value and push as the value
+                /* get the scalar value and push as the value */
                 new_agtype_value_v = get_ith_agtype_value_from_container(&new_v->root, 0);
 
                 parsed_agtype_value = push_agtype_value(&parse_state, WAGT_VALUE, new_agtype_value_v);
@@ -9921,7 +9931,7 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
         agtype_value *new_agtype_value_v;
         agtype_value *key = string_to_agtype_value(var_name);
 
-        // push the new key
+        /* push the new key */
         parsed_agtype_value = push_agtype_value(
             &parse_state, WAGT_KEY, key);
 
@@ -9936,7 +9946,7 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
         {
             new_agtype_value_v = get_ith_agtype_value_from_container(&new_v->root, 0);
 
-            // convert the agtype array or object to a binary agtype_value
+            /* convert the agtype array or object to a binary agtype_value */
             parsed_agtype_value = push_agtype_value(&parse_state, WAGT_VALUE, new_agtype_value_v);
         }
         else
@@ -9947,7 +9957,7 @@ agtype_value *alter_property_value(agtype_value *properties, char *var_name,
         }
     }
 
-    // push the end object token to parse state
+    /* push the end object token to parse state */
     parsed_agtype_value = push_agtype_value(&parse_state, WAGT_END_OBJECT, NULL);
 
     return parsed_agtype_value;
@@ -9973,7 +9983,7 @@ agtype_value *alter_properties(agtype_value *original_properties,
     parsed_agtype_value = push_agtype_value(&parse_state, WAGT_BEGIN_OBJECT,
                                             NULL);
 
-    // Copy original properties.
+    /* Copy original properties. */
     if (original_properties)
     {
         if (original_properties->type != AGTV_OBJECT)
@@ -9986,7 +9996,7 @@ agtype_value *alter_properties(agtype_value *original_properties,
                           &parsed_agtype_value, true);
     }
 
-    // Append new properties.
+    /* Append new properties. */
     key = palloc0(sizeof(agtype_value));
     value = palloc0(sizeof(agtype_value));
     it = agtype_iterator_init(&new_properties->root);
@@ -11093,7 +11103,7 @@ Datum age_keys(PG_FUNCTION_ARGS)
         PG_RETURN_NULL();
     }
 
-    //needs to be a map, node, or relationship
+    /* needs to be a map, node, or relationship */
     agt_arg = AG_GET_ARG_AGTYPE_P(0);
 
     /*
